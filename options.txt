@@ -1,0 +1,419 @@
+options
+{
+    static = true;
+    DEBUG_PARSER = true;
+}
+
+PARSER_BEGIN(JavaToPython)
+package teste;
+
+public class JavaToPython{
+    public static void main(String[] args) throws ParseException {
+        JavaToPython parser = new JavaToPython(System.in);
+        try {
+          	System.out.println("---------- \n");
+            System.out.println("\n Codigo Python: \n "+parser.Program());
+            System.out.println("Parsing successful.");
+        } catch (ParseException e) {
+            System.out.println("Parsing failed: " + e.getMessage());
+        }
+    }
+}
+PARSER_END(JavaToPython)
+SKIP : {
+   < " " | "\t" | "\r" | "\n" | "\r\n" >
+| <"//" (~["\n","\r"])* ("\n"|"\r"|"\r\n") >
+| <"/*"(~["/"])*  "*""/" >
+| <COMMENT: "/*" (~["*"])* "*" "/" >
+| <LINE_COMMENT: "//" (~["\n", "\r"])* ("\n" | "\r" | "\r\n") >
+}
+
+TOKEN : {
+   < INPUT: "input" >
+  | < OUTPUT: "output" >
+  | < IF: "if" >
+  | < ELSE: "else" >
+  | < FOR: "for" >
+  | < WHILE: "while" >
+  | < DO: "do" >
+  | < FUNCTION: "function" >
+  | < INT: "int" >
+  //| < BOOL: "bool" >
+  | < NUMBER: (["0"-"9"])+ >
+  | < PLUS: "+" >
+  | < MINUS: "-" >
+  | < MULTIPLY: "*" >
+  | < DIVIDE: "/" >
+  | < EQUALS: "==" >
+  | < NOTEQUALS: "!=" >
+  | < LESS: "<" >
+  | < LESSEQUALS: "<=" >
+  | < GREATER: ">" >
+  | < GREATEREQUALS: ">=" >
+  | < AND: "&&" >
+  | < OR: "||" >
+  | < NOT: "!" >
+  | < COMMA: "," >
+  | < LPAREN: "(" >
+  | < LBRACE: "{" >
+  | < LCOL: "[" >
+  | < RCOL: "]" >
+  | < RBRACE: "}" >
+  | < RPAREN: ")" >
+  | < QMARK: "\"" >
+  | < EQUAL:"=" >
+  | < VOID: "void" > 
+  | < CLASSLEVEL: "static" | "final" >
+  | < SEMICOLON: ";" >
+  | < FLOAT_LITERAL: (["0"-"9"])+ "." (["0"-"9"])+ >
+  | < CLASS:"class" >
+  | < ELSEIF:"else if" >
+  | < MODIFIERS : "private"|"public"|"protected" >
+  | < NEW: "new" >
+  | < PRINT: "System.out.println" >
+  //| < CLASSNAME : (["a"-"z", "A"-"Z", "0"-"9", "_"])+ >
+  | < TYPE: "long"|"boolean"|"char"|"float"|"double"|"String"|"void " >
+  | < ARRAY_TYPE: "int[]"|"long[]"|"boolean[]"|"char[]"|"float[]"|"double[]"|"String[]" >
+  | < CHARACTER : 
+    (
+      ["a"-"z", "A"-"Z", "_"
+       
+      ] 
+      (
+        ["a"-"z", "A"-"Z", "0"-"9", "_"
+         
+        ]
+      )*
+    )+
+ >
+}
+
+
+
+// Grammar rules  
+String Program() : {String code ="" ; String stmnt ="";}
+{
+  (stmnt = Statement() {code += stmnt;} )*
+    {return code;}
+}
+
+String Statement() : {String code = "",expr ="";}
+{
+	
+    (
+      
+       // expr = MethodDeclaration()	{ code += expr;}
+ 	 expr = IfStatement() 			{ code += expr;}
+    | expr = ForStatement() 		{ code += expr;}
+    | expr = WhileStatement() 		{ code += expr;}
+    | expr = ExpressionStatement()	{ code += expr;}
+    | expr = PrintSteatment()		{ code += expr;}
+	| expr = VariableDeclaration() 	{ code += expr;})
+ 
+  {
+   return code;
+  }
+}
+
+String PrintSteatment() : {String variable=""; Token var;String t; }
+{
+  < PRINT > { variable += "print" ;}
+   var = < LPAREN > { variable += var.toString(); } 
+    (
+    < CHARACTER > (< LCOL > ( < CHARACTER > | < NUMBER > ) < RCOL >)?
+  	|
+      t = StringConcat() { variable += t; }     
+    | t = Arithmetic() { variable += t; }
+     
+    )
+     var = < RPAREN >  { variable += var.toString(); }
+     < SEMICOLON >
+  {
+    return variable; }
+}
+String VariableDeclaration() : {String variable=""; Token var;String t;}
+{
+//    < TYPE >
+//    var = < CHARACTER > { variable += var.toString(); }
+//    var = < EQUAL > { variable += var.toString(); }
+//    (
+//       t = Arithmetic() { variable += t; } 
+//      | t= StringConcat() { variable += t; }
+//    )
+//     < SEMICOLON >
+//    { return variable+"\n"; }
+	(< TYPE > | < ARRAY_TYPE > | < INT > )
+    var = < CHARACTER > { variable += var.toString(); }
+    var = < EQUAL > { variable += var.toString(); }
+    (
+      var = < LBRACE >  { variable += '['; })?
+    (
+      t = Arithmetic() { variable += t; } 
+    | t = StringConcat() { variable += t; }
+    | ArrayAcces() 
+    )
+    (
+      var = < COMMA > { variable += var.toString(); }
+      (
+      t = Arithmetic() { variable += t; } 
+    | t = StringConcat() { variable += t; }
+    )
+    )*
+    (
+      var = < RBRACE >  { variable += ']'; })?
+    < SEMICOLON >
+    { return variable + "\n"; }
+
+}
+String ArrayAcces() : {String variable=""; Token var;}
+{
+ < CHARACTER >< LCOL > ( < CHARACTER > | < NUMBER > ) < RCOL > 
+{
+  return variable;
+}
+   }
+ 
+String StringConcat() : {String variable=""; Token var;}
+{
+ 	
+ 	   < QMARK >
+    (
+      var = < CHARACTER > { variable += var.toString(); }
+      ( < NUMBER >)?
+        )*
+          < QMARK >
+    (
+        var = < PLUS > { variable += var.toString(); }
+        < QMARK >
+        var = < CHARACTER > { variable += var.toString(); }
+        ( < NUMBER >)?
+        < QMARK >
+    )*
+
+    { return variable; }
+}
+
+String Arithmetic() : {String variable=""; Token var; }
+{
+    (var = < NUMBER > { variable += var.toString(); }
+    |var = < FLOAT_LITERAL > { variable += var.toString(); }
+    ) 
+    (
+        (
+            var = < PLUS > { variable += var.toString(); }
+          | var = < MINUS > { variable += var.toString(); }
+          | var = < DIVIDE > { variable += var.toString(); }
+          | var = < MULTIPLY > { variable += var.toString(); }
+        )
+        var = < NUMBER > { variable += var.toString(); }
+    )?
+    { return variable; }
+}
+
+
+String IfStatement() : {String varieble="";Token var;String t;}
+{
+    var = <IF> { varieble += "if: \n ";}
+     <LPAREN>
+     t = Expression() { varieble += t;}
+     <RPAREN>
+     < LBRACE >  { varieble += "\n ";}
+    t = Statement() { varieble += t;}
+    < RBRACE > { varieble += "\n";}
+    (
+    var = < ELSEIF > { varieble += "elif ";}
+	     <LPAREN> 
+	     	Expression() { varieble += t;}
+	     <RPAREN>
+	    	 < LBRACE > 
+	    		t = Statement() 
+	    	 < RBRACE > 
+	      
+    )?
+   (
+   		var = <ELSE> { varieble += var.toString()+"\n "; }
+   		< LBRACE > { varieble += "\n ";}
+   		 t =	Statement() {System.out.println("aqui") ;varieble += t;}
+   		< RBRACE > { varieble += "\n";}
+   	)?
+   {return varieble;}
+}
+
+String ForStatement() : {String varieble="";Token var;String t;}
+{
+    var = <FOR> 	{ varieble += var.toString(); }
+    	<LPAREN>
+    	VariableDeclaration()
+      	t= ForInitializer() { varieble +=  t; } 
+     	 ForUpdate() <RPAREN> < LBRACE > 
+    	Statement() < RBRACE >
+    {return varieble;}
+}
+
+String ForInitializer() : {String varieble="";Token var;}
+{
+    varieble = ExpressionStatement()
+    {return varieble;}
+}
+
+ String ForUpdate() : {String varieble="";Token var;String t;}
+{
+    varieble = Expression() {return varieble; }
+}
+
+String WhileStatement() : {String varieble="";Token var;String t;}
+{
+    var = <WHILE> { varieble += var.toString(); }
+    <LPAREN>
+   	t = Expression()  {varieble += t; }
+    <RPAREN>
+    < LBRACE > 
+    t = Statement()  {varieble += t; }
+    < RBRACE >
+   (
+      < DO >
+    < LBRACE > 
+    t = Statement()  {varieble += t; }
+    < RBRACE >
+  )*
+    {return varieble;}
+}
+
+String MethodCall() : {String varieble="";Token var;String t;}
+{
+  
+  var 	= < CHARACTER > 	{ varieble += var.toString();}
+  var 	= <LPAREN> 			{ varieble += var.toString();}
+  t 	= ParameterList() 	{ varieble += t;}
+  var 	= <RPAREN> 			{ varieble += var.toString();}
+  < SEMICOLON > 
+  {
+    return varieble;
+  }
+}
+String MethodDeclaration() : {String varieble="";Token var;String t;}
+{
+    (< MODIFIERS >)?
+     (< CLASSLEVEL >)?
+      < TYPE > 					{ varieble += "def";} 
+       var 	= < CHARACTER > 	{ varieble += var.toString();}
+       var 	= <LPAREN> 			{ varieble += var.toString();}
+       t 	= ParameterList() 	{ varieble += t;}
+       var 	= <RPAREN> 			{ varieble += var.toString();}
+	          < LBRACE > 		{ varieble += ":\n ";}
+	   t 	= Statement() 		{ varieble += t;}
+	    	  < RBRACE >		{ varieble += "\n";}
+    { return varieble; }
+}
+
+String ParameterList() : {String varieble="";Token var;String t;}
+{
+    (
+      (	var = < TYPE > 			{ varieble += var.toString(); })?
+      	var = < CHARACTER > 	{ varieble += var.toString(); }
+      	 (var = <COMMA>			{ varieble += var.toString(); }
+      	  var = < TYPE >		{ varieble += var.toString(); }
+      	  var = < CHARACTER > 	{ varieble += var.toString(); })*)?
+     {
+    return varieble;
+  }
+}
+
+String ExpressionStatement() : {String varieble="";Token var;}
+{
+    varieble = Expression() { varieble += varieble; }
+     <SEMICOLON>
+    {return varieble;}
+}
+
+String Expression() : {String varieble="";}
+{
+    varieble = ConditionalOrExpression()
+     {return varieble;}
+}
+
+String ConditionalOrExpression() : {String varieble="";Token var;String t;}
+{
+   t = ConditionalAndExpression() {varieble += t; }
+    (
+      	var = <OR> { varieble += var.toString(); }
+      t = ConditionalAndExpression() {varieble += t; }
+      )*
+    {return varieble;}
+}
+
+String ConditionalAndExpression() : {String varieble="";Token var;String t;}
+{
+   t =EqualityExpression() { varieble += t; }
+   (
+     var = <AND> 			{ varieble += var.toString(); }
+     t = EqualityExpression() 	{ varieble += t; }
+     )*
+   {return varieble;}
+}
+
+String EqualityExpression() : {String varieble="";Token var;String t;}
+{
+   t = RelationalExpression() { varieble += t; }
+    ( (
+      		var = <EQUALS> 					{ varieble += var.toString(); }
+      	| 	var = <NOTEQUALS> 				{ varieble += var.toString(); }
+      	) t = RelationalExpression() 			{ varieble += t; }
+      )*
+    {return varieble;}
+}
+
+String RelationalExpression() : {String varieble="";Token var;String t;}
+{
+  t = AdditiveExpression() { varieble += t; } ( (
+      	var = <LESS> 			{ varieble += var.toString(); }
+      | var = <LESSEQUALS>		{ varieble += var.toString(); }
+      | var = <GREATER>			{ varieble += var.toString(); }
+      | var = <GREATEREQUALS>	{ varieble += var.toString(); }
+      	)
+    t = AdditiveExpression()		{ varieble += t; } )*
+	{return varieble;}
+}
+
+String AdditiveExpression() : {String varieble="";Token var;String t;}
+{
+  t = MultiplicativeExpression() { varieble += t; } ( (
+      	var = <PLUS> 	{ varieble += var.toString(); }
+      | var = <MINUS>	{ varieble += var.toString(); }
+      )
+      (
+        t = MultiplicativeExpression() { varieble += t; })? )*
+   {return varieble;}
+}
+
+String MultiplicativeExpression() : {String varieble="";Token var;String t;}
+{
+   t = UnaryExpression() { varieble += t;} ( (
+      	var = <MULTIPLY>	{ varieble += var.toString(); }
+      | var = <DIVIDE>		{ varieble += var.toString(); }
+      )
+      t = UnaryExpression() 	{ varieble += t;}
+     )*
+     {return varieble;}
+}
+
+String UnaryExpression() : {String varieble="";Token var;String t;}
+{
+    (
+        //var = <MINUS> 		{ varieble += var.toString(); }
+       var = <NOT> 		{ varieble += var.toString(); }
+      | var = < EQUAL >  		{ varieble += var.toString(); }
+      )
+     |t = PrimaryExpression()		{ varieble += t;}
+  {return varieble;}
+}
+
+String PrimaryExpression() : {String varieble="";Token var;}
+{
+    (
+      var = <NUMBER> { varieble += var.toString(); }
+  | var = < CHARACTER > { varieble += var.toString(); }
+  | <LPAREN> Expression() <RPAREN>
+  )
+  {return varieble;}
+}
